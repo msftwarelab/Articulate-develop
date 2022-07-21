@@ -1,0 +1,69 @@
+﻿using System.Web.Mvc;
+using System.Xml.Linq;
+using Umbraco.Core;
+using Umbraco.Core.Models.PublishedContent;
+using Umbraco.Web;
+using Umbraco.Web.Mvc;
+
+namespace Articulate.Controllers
+{
+    /// <summary>
+    /// Really simple discovery controller
+    /// </summary>
+    public class RsdController : PluginController
+    {
+        /// <summary>
+        /// Renders the RSD for the articulate node id
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        [HttpGet]
+        public ActionResult Index(int id)
+        {
+            var node = Umbraco.Content(id);
+            if (node == null)
+            {
+                return new HttpNotFoundResult();
+            }
+
+            var rsd = new XElement("rsd",
+                new XAttribute("version", "1.0"),
+                new XElement("service",
+                    new XElement("engineName", "Articulate, powered by Umbraco"),
+                    new XElement("engineLink", "http://github.com/shandem/articulate"),
+                    new XElement("homePageLink", node.Url(mode: UrlMode.Absolute))),
+                new XElement("apis",
+                    new XElement("api",
+                        new XAttribute("name", "MetaWeblog"),
+                        new XAttribute("preferred", true),
+                        new XAttribute("apiLink", node.Url(mode: UrlMode.Absolute).EnsureEndsWith('/') + "metaweblog/" + id),
+                        new XAttribute("blogID", node.Url(mode: UrlMode.Absolute)))));
+
+            return new XmlResult(new XDocument(rsd));
+        }
+    }
+
+    internal class XmlResult : ActionResult
+    {
+        private readonly XDocument _xDocument;
+
+        public XmlResult(XDocument xDocument)
+        {
+            _xDocument = xDocument;
+        }
+
+        /// <summary>
+        /// Serialises the object that was passed into the constructor to XML and writes the corresponding XML to the result stream.
+        /// </summary>
+        /// <param name="context">The controller context for the current request.</param>
+        public override void ExecuteResult(ControllerContext context)
+        {
+            if (_xDocument == null)
+                return;
+
+            context.HttpContext.Response.Clear();
+            context.HttpContext.Response.ContentType = "text/xml";
+            context.HttpContext.Response.Output.Write(_xDocument.ToString());
+        }
+    }
+}
